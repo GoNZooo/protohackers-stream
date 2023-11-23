@@ -100,12 +100,14 @@ main :: proc() {
 						break
 					}
 
+					received := recv_buffer[:bytes_received]
+					log.debugf("Received %d bytes: '%s'", bytes_received, received)
+
 					bytes_sent := 0
 					for bytes_sent < bytes_received {
-						n, send_error := net.send_tcp(
-							net.TCP_Socket(fd.fd),
-							recv_buffer[:bytes_received],
-						)
+						send_slice := recv_buffer[bytes_sent:bytes_received]
+						n, send_error := net.send_tcp(net.TCP_Socket(fd.fd), send_slice)
+						log.debugf("Sent %d bytes: '%s'", n, send_slice)
 						if send_error != nil {
 							log.errorf("Failed to send: %v", send_error)
 
