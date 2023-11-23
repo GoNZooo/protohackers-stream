@@ -87,7 +87,7 @@ main :: proc() {
 		}
 
 		if poll_result > 0 {
-			for fd in _fds[:] {
+			for fd, fd_index in _fds[:] {
 				if fd.revents & unix.POLLIN != 0 {
 					log.debugf("fd.revents=%02x", fd.revents)
 					bytes_received, recv_error := net.recv_tcp(
@@ -96,6 +96,13 @@ main :: proc() {
 					)
 					if recv_error != nil {
 						log.errorf("Failed to recv: %v", recv_error)
+
+						break
+					}
+					if bytes_received == 0 {
+						log.debugf("Client closed connection")
+						ordered_remove(&_fds, fd_index)
+						net.close(net.TCP_Socket(fd.fd))
 
 						break
 					}
