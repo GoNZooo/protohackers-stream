@@ -1,0 +1,27 @@
+version: 3
+
+tasks:
+  smoke_test:
+    cmds:
+      - ./bin/smoke-test {{.CLI_ARGS}}
+    deps: 
+      - build_smoke_test
+    method: none
+    silent: true
+
+  build_smoke_test:
+    cmds:
+      - odin build smoke_test -o:none -debug -out:./bin/smoke-test
+    sources:
+      - ./smoke_test/**/*.odin
+    generates:
+      - ./bin/smoke-test
+    silent: true
+
+  clean:
+    cmds:
+      - rm -rf ./bin/*
+    silent: true
+    method: none
+
+interval: 100ms
