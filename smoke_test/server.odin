@@ -3,6 +3,7 @@ package smoke_test
 import c "core:c/libc"
 import "core:fmt"
 import "core:log"
+import "core:mem"
 import "core:net"
 import "core:os"
 import "core:strconv"
@@ -51,7 +52,7 @@ main :: proc() {
 	}
 
 	listen_fds := [1]os.pollfd{os.pollfd{fd = c.int(listen_socket), events = unix.POLLIN}}
-	recv_buffer: [4096]byte
+	recv_buffer: [8 * mem.Kilobyte]byte
 	for {
 		poll_result, poll_errno := os.poll(listen_fds[:], 10)
 		if poll_result == -1 || poll_errno != os.ERROR_NONE {
@@ -75,7 +76,7 @@ main :: proc() {
 			append(&_fds, pollfd)
 		}
 
-		poll_result, poll_errno = os.poll(_fds[:], 10)
+		poll_result, poll_errno = os.poll(_fds[:], 50)
 		if poll_result == -1 || poll_errno != os.ERROR_NONE {
 			log.errorf("Failed to poll client FDs: %d", poll_errno)
 
@@ -88,6 +89,7 @@ main :: proc() {
 		if poll_result > 0 {
 			for fd in _fds[:] {
 				if fd.revents & unix.POLLIN != 0 {
+					log.debugf("fd.revents=%02x", fd.revents)
 					bytes_received, recv_error := net.recv_tcp(
 						net.TCP_Socket(fd.fd),
 						recv_buffer[:],
