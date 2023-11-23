@@ -61,10 +61,12 @@ main :: proc() {
 		}
 
 		if poll_result > 0 {
-			client_socket, _, accept_error := net.accept_tcp(listen_socket)
+			client_socket, client_endpoint, accept_error := net.accept_tcp(listen_socket)
 			if accept_error != nil {
 				log.errorf("Failed to accept client: %v", accept_error)
 			}
+
+			log.debugf("Accepted client %v", client_endpoint)
 
 			pollfd := os.pollfd {
 				fd     = c.int(client_socket),
@@ -78,6 +80,9 @@ main :: proc() {
 			log.errorf("Failed to poll client FDs: %d", poll_errno)
 
 			continue
+		}
+		if poll_result > 0 {
+			log.debugf("poll_result=%d", poll_result)
 		}
 
 		if poll_result > 0 {
