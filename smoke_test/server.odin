@@ -28,7 +28,7 @@ main :: proc() {
 
 	fmt.printf("Starting %s on port %d\n", NAME, port)
 
-	endpoint, endpoint_parsed := net.parse_endpoint("127.0.0.1")
+	endpoint, endpoint_parsed := net.parse_endpoint("0.0.0.0")
 	if !endpoint_parsed {
 		fmt.printf("Failed to parse endpoint\n")
 
