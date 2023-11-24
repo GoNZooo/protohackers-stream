@@ -134,7 +134,7 @@ main :: proc() {
 						copy(send_buffer[:], outgoing_message[bytes_sent:])
 						n, send_error := net.send_tcp(
 							net.TCP_Socket(fd.fd),
-							send_buffer[bytes_sent:len(outgoing_message)],
+							send_buffer[:len(outgoing_message[bytes_sent:])],
 						)
 						if send_error != nil {
 							log.errorf("Failed to send response: %v", send_error)
@@ -199,15 +199,31 @@ is_prime :: proc(n: Number) -> bool {
 
 @(test, private = "package")
 test_is_prime :: proc(t: ^testing.T) {
-	cases := map[Number]bool {
+	context.logger = log.create_console_logger()
+
+	cases := map[i64]bool {
+		157813 = true,
 		800399 = true,
-		3.0    = false,
 	}
 
 	for x, expected in cases {
 		actual := is_prime(x)
+		log.debugf("is_prime(%d) == %v, expecting %v", x, actual, expected)
 
 		testing.expect(t, actual == expected, fmt.tprintf("is_prime(%d) == %v", x, expected))
+	}
+
+	float_cases := map[f64]bool {
+		157813.0                                                                                              = false,
+		800399.0                                                                                              = false,
+		3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117067 = false,
+	}
+
+	for f, expected in float_cases {
+		actual := is_prime(f)
+		log.debugf("is_prime(%f) == %v, expecting %v", f, actual, expected)
+
+		testing.expect(t, actual == expected, fmt.tprintf("is_prime(%f) == %v", f, expected))
 	}
 }
 
