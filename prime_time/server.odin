@@ -1,6 +1,5 @@
 package prime_time
 
-import "core:bytes"
 import c "core:c/libc"
 import "core:encoding/json"
 import "core:fmt"
@@ -101,63 +100,83 @@ main :: proc() {
 		if poll_result > 0 {
 			for fd, fd_index in _fds[:] {
 				if fd.revents & unix.POLLIN != 0 {
-					message, closed := receive_message(&_fds, fd_index, recv_buffer[:], fd.fd)
+					messages, closed, receive_allocation_error := receive_messages(
+						&_fds,
+						fd_index,
+						recv_buffer[:],
+						fd.fd,
+					)
 					if closed {
 						net.close(net.TCP_Socket(fd.fd))
 
 						continue
 					}
-					log.debugf("Received message: '%s'", message)
-
-					valid_message, validation_error := validate_message(message)
-					if validation_error != nil {
-						log.errorf("Failed to validate message: %v", validation_error)
-
-						copy(send_buffer[:], "invalid")
-						net.send_tcp(net.TCP_Socket(fd.fd), send_buffer[:len("invalid")])
+					if receive_allocation_error != nil {
+						log.errorf("Failed to receive message: %v", receive_allocation_error)
 
 						net.close(net.TCP_Socket(fd.fd))
-						log.debugf(
-							"adding fd %d for removal because of validation error",
-							fd_index,
-						)
+
+						log.debugf("adding fd %d for removal because of receive error", fd_index)
 						append(&fds_to_remove, fd_index)
 
 						continue
 					}
 
-					outgoing_message, response_allocation_error := handle_request(
-						response_buffer[:],
-						valid_message,
-					)
-					if response_allocation_error != nil {
-						log.errorf("Failed to allocate response: %v", response_allocation_error)
+					for message in messages {
+						log.debugf("Received message: '%s'", message)
+						valid_message, validation_error := validate_message(message)
+						if validation_error != nil {
+							log.errorf("Failed to validate message: %v", validation_error)
 
-						net.close(net.TCP_Socket(fd.fd))
-
-						log.debugf("adding fd %d for removal because of send error", fd_index)
-						append(&fds_to_remove, fd_index)
-
-						continue
-					}
-
-					log.debugf("Sending response: '%s'", outgoing_message)
-					bytes_to_send := len(outgoing_message)
-					bytes_sent := 0
-					for bytes_sent < bytes_to_send {
-						slice_to_send := outgoing_message[bytes_sent:]
-						copy(send_buffer[:], slice_to_send)
-						n, send_error := net.send_tcp(net.TCP_Socket(fd.fd), slice_to_send)
-						log.debugf("Sent %d bytes: '%s'", n, slice_to_send)
-						if send_error != nil {
-							log.errorf("Failed to send response: %v", send_error)
+							copy(send_buffer[:], "invalid")
+							net.send_tcp(net.TCP_Socket(fd.fd), send_buffer[:len("invalid")])
 
 							net.close(net.TCP_Socket(fd.fd))
+							log.debugf(
+								"adding fd %d for removal because of validation error",
+								fd_index,
+							)
+							append(&fds_to_remove, fd_index)
+
+							continue
 						}
 
-						bytes_sent += n
+						outgoing_message, response_allocation_error := handle_request(
+							response_buffer[:],
+							valid_message,
+						)
+						if response_allocation_error != nil {
+							log.errorf(
+								"Failed to allocate response: %v",
+								response_allocation_error,
+							)
+
+							net.close(net.TCP_Socket(fd.fd))
+
+							log.debugf("adding fd %d for removal because of send error", fd_index)
+							append(&fds_to_remove, fd_index)
+
+							continue
+						}
+
+						log.debugf("Sending response: '%s'", outgoing_message)
+						bytes_to_send := len(outgoing_message)
+						bytes_sent := 0
+						for bytes_sent < bytes_to_send {
+							slice_to_send := outgoing_message[bytes_sent:]
+							copy(send_buffer[:], slice_to_send)
+							n, send_error := net.send_tcp(net.TCP_Socket(fd.fd), slice_to_send)
+							log.debugf("Sent %d bytes: '%s'", n, slice_to_send)
+							if send_error != nil {
+								log.errorf("Failed to send response: %v", send_error)
+
+								net.close(net.TCP_Socket(fd.fd))
+							}
+
+							bytes_sent += n
+						}
+						net.send_tcp(net.TCP_Socket(fd.fd), []byte{'\n'})
 					}
-					net.send_tcp(net.TCP_Socket(fd.fd), []byte{'\n'})
 				}
 			}
 
@@ -338,32 +357,42 @@ validate_message :: proc(
 	return Request{number = number}, nil
 }
 
-receive_message :: proc(
+receive_messages :: proc(
 	fds: ^[dynamic]os.pollfd,
 	fd_index: int,
 	b: []byte,
 	fd: c.int,
 ) -> (
-	message: []byte,
+	messages: [][]byte,
 	closed: bool,
+	error: mem.Allocator_Error,
 ) {
-	bytes_received, recv_error := net.recv_tcp(net.TCP_Socket(fd), b)
-	if recv_error != nil {
-		log.errorf("Failed to recv: %v", recv_error)
+	_messages := make([dynamic][]byte, 0, 1024) or_return
+	_current_message := make([dynamic]byte, 0, 0) or_return
 
-		return nil, true
+	recv_buffer: [1]byte
+
+	for bytes_received, recv_error := net.recv_tcp(net.TCP_Socket(fd), recv_buffer[:]);
+	    recv_error != net.TCP_Recv_Error.Timeout;
+	    bytes_received, recv_error = net.recv_tcp(net.TCP_Socket(fd), recv_buffer[:]) {
+
+		if bytes_received == 0 {
+			log.debugf("Received 0 bytes, closing socket")
+			return _messages[:], true, .None
+		}
+
+		if recv_error != nil {
+			log.errorf("Failed to receive data: %v", recv_error)
+			return _messages[:], true, .None
+		}
+
+		switch recv_buffer[0] {
+		case '\n':
+			log.debugf("Newline, adding message: '%s'", _current_message[:])
+		case:
+			append(&_current_message, recv_buffer[0])
+		}
 	}
-	if bytes_received == 0 {
-		log.debugf("Client %d closed connection", fd)
-		ordered_remove(fds, fd_index)
-		net.close(net.TCP_Socket(fd))
 
-		return nil, true
-	}
-
-	received_slice := b[:bytes_received]
-	log.debugf("Received %d bytes: '%s'", bytes_received, received_slice)
-	newline_index := bytes.index_byte(received_slice, '\n')
-
-	return received_slice[:newline_index], false
+	return _messages[:], false, .None
 }
