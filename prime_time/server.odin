@@ -365,6 +365,7 @@ receive_message :: proc(
 	bytes_received := 0
 	for {
 		n, recv_error := net.recv_tcp(net.TCP_Socket(fd), b[bytes_received:])
+		log.debugf("Received %d bytes: '%s'", n, b[bytes_received:])
 		bytes_received += n
 
 		switch {
