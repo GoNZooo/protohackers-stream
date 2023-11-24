@@ -282,37 +282,12 @@ Validation_Error :: union {
 	Invalid_Is_Prime_Value,
 }
 
-Invalid_Json_Type :: struct {
-	type: typeid,
-}
+Invalid_Json_Type :: struct {}
 
-Invalid_Is_Prime_Value :: struct {
-	type: typeid,
-}
+Invalid_Is_Prime_Value :: struct {}
 
 Missing_Method :: struct {}
 Missing_Is_Prime :: struct {}
-
-typeid_from_value :: proc(value: json.Value) -> typeid {
-	switch v in value {
-	case json.Null:
-		return nil
-	case json.Boolean:
-		return bool
-	case json.Integer:
-		return int
-	case json.Float:
-		return f32
-	case json.String:
-		return string
-	case json.Array:
-		return typeid_from_value(v)
-	case json.Object:
-		return map[string]json.Value
-	}
-
-	return nil
-}
 
 validate_messages :: proc(
 	data: []byte,
@@ -330,7 +305,7 @@ validate_messages :: proc(
 		json_value := json.parse(message, parse_integers = true) or_return
 		object, is_object := json_value.(json.Object)
 		if !is_object {
-			return nil, Invalid_Json_Type{type = typeid_from_value(json_value)}
+			return nil, Invalid_Json_Type{}
 		}
 
 		method, method_exists := object["method"]
@@ -348,7 +323,7 @@ validate_messages :: proc(
 		number_as_float, number_is_float := number_value.(json.Float)
 
 		if !number_is_integer && !number_is_float {
-			return nil, Invalid_Is_Prime_Value{type = typeid_from_value(number_value)}
+			return nil, Invalid_Is_Prime_Value{}
 		}
 
 		number := number_is_integer ? Number(number_as_integer) : Number(number_as_float)
