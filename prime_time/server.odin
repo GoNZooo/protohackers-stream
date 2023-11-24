@@ -173,6 +173,7 @@ main :: proc() {
 				}
 			}
 
+			clear(&_new_fds)
 			for fd in _fds {
 				to_remove := false
 				for fd_to_remove in fds_to_remove {
@@ -185,6 +186,7 @@ main :: proc() {
 				append(&_new_fds, fd)
 			}
 
+			clear(&_fds)
 			_fds = _new_fds
 		}
 	}
