@@ -10,6 +10,7 @@ import "core:mem"
 import "core:mem/virtual"
 import "core:net"
 import "core:os"
+import "core:slice"
 import "core:strconv"
 import "core:sys/unix"
 import "core:testing"
@@ -49,22 +50,11 @@ main :: proc() {
 		os.exit(1)
 	}
 
-	_fds, pollfds_alloc_error := make([dynamic]os.pollfd, 0, 1024)
-	if pollfds_alloc_error != nil {
-		fmt.printf("Failed to allocate pollfds: %v\n", pollfds_alloc_error)
+	fds := make(map[net.TCP_Socket]os.pollfd, 0)
 
-		os.exit(1)
-	}
-	_new_fds, new_fds_alloc_error := make([dynamic]os.pollfd, 0, 1024)
-	if new_fds_alloc_error != nil {
-		fmt.printf("Failed to allocate new_fds: %v\n", new_fds_alloc_error)
-
-		os.exit(1)
-	}
-
-	fds_to_remove, fds_to_remove_alloc_error := make([dynamic]int, 0, 1024)
+	clients_to_remove, fds_to_remove_alloc_error := make([dynamic]net.TCP_Socket, 0, 1024)
 	if fds_to_remove_alloc_error != nil {
-		fmt.printf("Failed to allocate fds_to_remove: %v\n", fds_to_remove_alloc_error)
+		fmt.printf("Failed to allocate clients_to_remove: %v\n", fds_to_remove_alloc_error)
 
 		os.exit(1)
 	}
@@ -93,13 +83,21 @@ main :: proc() {
 				fd     = c.int(client_socket),
 				events = unix.POLLIN,
 			}
-			append(&_fds, pollfd)
+			fds[client_socket] = pollfd
 		}
 
-		if len(_fds) > 0 {
-			log.debugf("Polling %d FDs: %v", len(_fds), _fds)
+		if len(fds) > 0 {
+			log.debugf("Polling %d FDs: %v", len(fds), fds)
 		}
-		poll_result, poll_errno = os.poll(_fds[:], 50)
+		_fds: []os.pollfd
+		alloc_error: mem.Allocator_Error
+		_fds, alloc_error = slice.map_values(fds)
+		if alloc_error != nil {
+			log.errorf("Failed to allocate for map values: _fds: %v", alloc_error)
+
+			continue
+		}
+		poll_result, poll_errno = os.poll(_fds, 50)
 		if poll_result == -1 || poll_errno != os.ERROR_NONE {
 			log.errorf("Failed to poll client FDs: %d", poll_errno)
 
@@ -107,9 +105,9 @@ main :: proc() {
 		}
 
 		if poll_result > 0 {
-			for fd, fd_index in _fds[:] {
+			for socket, fd in fds {
 				if fd.revents & unix.POLLIN != 0 {
-					message, closed := receive_message(&_fds, fd_index, recv_buffer[:], fd.fd)
+					message, closed := receive_message(recv_buffer[:], fd.fd)
 					if closed {
 						net.close(net.TCP_Socket(fd.fd))
 
@@ -125,11 +123,8 @@ main :: proc() {
 						net.send_tcp(net.TCP_Socket(fd.fd), send_buffer[:len("invalid")])
 
 						net.close(net.TCP_Socket(fd.fd))
-						log.debugf(
-							"adding fd %d for removal because of validation error",
-							fd_index,
-						)
-						append(&fds_to_remove, fd_index)
+						log.debugf("adding fd %d for removal because of validation error", socket)
+						append(&clients_to_remove, socket)
 
 						continue
 					}
@@ -148,8 +143,8 @@ main :: proc() {
 
 							net.close(net.TCP_Socket(fd.fd))
 
-							log.debugf("adding fd %d for removal because of send error", fd_index)
-							append(&fds_to_remove, fd_index)
+							log.debugf("adding %d for removal because of send error", socket)
+							append(&clients_to_remove, socket)
 
 							continue
 						}
@@ -174,21 +169,9 @@ main :: proc() {
 				}
 			}
 
-			clear(&_new_fds)
-			for fd in _fds {
-				to_remove := false
-				for fd_to_remove in fds_to_remove {
-					if int(fd.fd) == fd_to_remove {
-						to_remove = true
-						break
-					}
-				}
-
-				append(&_new_fds, fd)
+			for client in clients_to_remove {
+				delete_key(&fds, client)
 			}
-
-			clear(&_fds)
-			_fds = _new_fds
 		}
 	}
 }
@@ -370,15 +353,7 @@ validate_messages :: proc(
 	return _valid_messages, nil
 }
 
-receive_message :: proc(
-	fds: ^[dynamic]os.pollfd,
-	fd_index: int,
-	b: []byte,
-	fd: c.int,
-) -> (
-	received_bytes: []byte,
-	closed: bool,
-) {
+receive_message :: proc(b: []byte, fd: c.int) -> (received_bytes: []byte, closed: bool) {
 	bytes_received := 0
 	loop: for {
 		n, recv_error := net.recv_tcp(net.TCP_Socket(fd), b[bytes_received:])
