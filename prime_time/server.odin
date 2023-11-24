@@ -389,6 +389,8 @@ receive_messages :: proc(
 		switch recv_buffer[0] {
 		case '\n':
 			log.debugf("Newline, adding message: '%s'", _current_message[:])
+			append(&_messages, _current_message[:])
+			clear(&_current_message)
 		case:
 			append(&_current_message, recv_buffer[0])
 		}
