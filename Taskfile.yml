@@ -18,6 +18,23 @@ tasks:
       - ./bin/smoke-test
     silent: true
 
+  prime_time:
+    cmds:
+      - ./bin/prime-time {{.CLI_ARGS}}
+    deps: 
+      - build_prime_time
+    method: none
+    silent: true
+
+  build_prime_time:
+    cmds:
+      - odin build prime_time -o:none -debug -out:./bin/prime-time
+    sources:
+      - ./prime_time/**/*.odin
+    generates:
+      - ./bin/prime-time
+    silent: true
+
   clean:
     cmds:
       - rm -rf ./bin/*

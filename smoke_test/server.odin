@@ -82,9 +82,6 @@ main :: proc() {
 
 			continue
 		}
-		if poll_result > 0 {
-			log.debugf("poll_result=%d", poll_result)
-		}
 
 		if poll_result > 0 {
 			for fd, fd_index in _fds[:] {
