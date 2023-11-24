@@ -355,6 +355,7 @@ receive_message :: proc(
 	}
 
 	received_slice := b[:bytes_received]
+	log.debugf("Received %d bytes: '%s'", bytes_received, received_slice)
 	newline_index := bytes.index_byte(received_slice, '\n')
 
 	return received_slice[:newline_index], false
