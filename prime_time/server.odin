@@ -10,6 +10,7 @@ import "core:mem"
 import "core:mem/virtual"
 import "core:net"
 import "core:os"
+import "core:slice"
 import "core:strconv"
 import "core:sys/unix"
 import "core:testing"
@@ -52,6 +53,13 @@ main :: proc() {
 	_fds, pollfds_alloc_error := make([dynamic]os.pollfd, 0, 1024)
 	if pollfds_alloc_error != nil {
 		fmt.printf("Failed to allocate pollfds: %v\n", pollfds_alloc_error)
+
+		os.exit(1)
+	}
+
+	fds_to_remove, fds_to_remove_alloc_error := make([dynamic]int, 0, 1024)
+	if fds_to_remove_alloc_error != nil {
+		fmt.printf("Failed to allocate fds_to_remove: %v\n", fds_to_remove_alloc_error)
 
 		os.exit(1)
 	}
@@ -109,7 +117,7 @@ main :: proc() {
 						net.send_tcp(net.TCP_Socket(fd.fd), send_buffer[:len("invalid")])
 
 						net.close(net.TCP_Socket(fd.fd))
-						ordered_remove(&_fds, fd_index)
+						append(&fds_to_remove, fd_index)
 
 						continue
 					}
@@ -122,7 +130,7 @@ main :: proc() {
 						log.errorf("Failed to allocate response: %v", response_allocation_error)
 
 						net.close(net.TCP_Socket(fd.fd))
-						ordered_remove(&_fds, fd_index)
+						append(&fds_to_remove, fd_index)
 
 						continue
 					}
@@ -145,6 +153,11 @@ main :: proc() {
 					}
 					net.send_tcp(net.TCP_Socket(fd.fd), []byte{'\n'})
 				}
+			}
+
+			slice.reverse_sort(fds_to_remove[:])
+			for fd_index in fds_to_remove[:] {
+				ordered_remove(&_fds, fd_index)
 			}
 		}
 	}
