@@ -201,14 +201,12 @@ handle_request :: proc(b: []byte, r: Request) -> (response: []byte, error: mem.A
 	virtual.arena_init_buffer(&buffer_arena, b) or_return
 	buffer_allocator := virtual.arena_allocator(&buffer_arena)
 
-	log.debugf("r=%v", r)
 	number_is_prime := is_prime(r.number)
 
 	response_value := Response {
 		method = "isPrime",
 		prime  = number_is_prime,
 	}
-	log.debugf("Response: %v", response_value)
 	json_data, _ := json.marshal(response_value, allocator = buffer_allocator)
 
 	return json_data, .None
