@@ -109,6 +109,7 @@ main :: proc() {
 			fds[socket] = fd
 		}
 
+		clear(&clients_to_remove)
 		if poll_result > 0 {
 			for socket, fd in fds {
 				if fd.revents & unix.POLLIN != 0 {
