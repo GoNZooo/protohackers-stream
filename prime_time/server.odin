@@ -141,7 +141,7 @@ main :: proc() {
 
 						bytes_sent += n
 					}
-
+					net.send_tcp(net.TCP_Socket(fd.fd), []byte{'\n'})
 				}
 			}
 		}
