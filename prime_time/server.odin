@@ -127,7 +127,8 @@ main :: proc() {
 						continue
 					}
 
-					for valid_message in valid_messages {
+					for valid_message, i in valid_messages {
+						log.debugf("Sending message %d", i)
 						outgoing_message, response_allocation_error := handle_request(
 							response_buffer[:],
 							valid_message,
@@ -320,6 +321,8 @@ validate_messages :: proc(
 	_valid_messages := make([dynamic]Request, 0, 0, allocator) or_return
 
 	split_messages := bytes.split(data, []byte{'\n'}, allocator)
+	message_count := len(split_messages)
+	log.debugf("message_count=%d", message_count)
 	for message in split_messages {
 		json_value := json.parse(message, parse_integers = true) or_return
 		object, is_object := json_value.(json.Object)
