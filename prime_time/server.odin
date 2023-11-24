@@ -367,9 +367,10 @@ receive_message :: proc(
 		n, recv_error := net.recv_tcp(net.TCP_Socket(fd), b[bytes_received:])
 		log.debugf("Received %d bytes: '%s'", n, b[bytes_received:])
 		bytes_received += n
-
+		last_character := b[bytes_received - 1]
+		log.debugf("last_character='%c'", last_character)
 		switch {
-		case b[bytes_received] == '\n':
+		case last_character == '\n':
 			received_bytes = b[:bytes_received - 1]
 			break
 		case n == 0:
