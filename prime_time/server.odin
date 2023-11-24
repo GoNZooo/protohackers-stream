@@ -96,6 +96,7 @@ main :: proc() {
 			append(&_fds, pollfd)
 		}
 
+		log.debugf("Polling %d FDs: %v", len(_fds), _fds)
 		poll_result, poll_errno = os.poll(_fds[:], 50)
 		if poll_result == -1 || poll_errno != os.ERROR_NONE {
 			log.errorf("Failed to poll client FDs: %d", poll_errno)
@@ -168,7 +169,6 @@ main :: proc() {
 						}
 						net.send_tcp(net.TCP_Socket(fd.fd), []byte{'\n'})
 					}
-					net.close(net.TCP_Socket(fd.fd))
 				}
 			}
 
