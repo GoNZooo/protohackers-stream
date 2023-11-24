@@ -374,7 +374,7 @@ receive_message :: proc(
 		case recv_error != nil:
 			log.errorf("Failed to receive message: %v", recv_error)
 			return nil, true
-		case b[n - 1] == '\n':
+		case b[bytes_received - 1] == '\n':
 			received_bytes = b[:bytes_received]
 			break
 		}
