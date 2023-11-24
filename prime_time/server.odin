@@ -285,7 +285,7 @@ validate_message :: proc(
 	valid_message: Request,
 	validation_error: Validation_Error,
 ) {
-	json_value := json.parse(message) or_return
+	json_value := json.parse(message, parse_integers = true) or_return
 	object, is_object := json_value.(json.Object)
 	if !is_object {
 		return Request{}, Invalid_Json_Type{type = typeid_from_value(json_value)}
