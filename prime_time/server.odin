@@ -86,12 +86,12 @@ main :: proc() {
 			fds[client_socket] = pollfd
 		}
 
-		if len(fds) > 0 {
-			log.debugf("Polling %d FDs: %v", len(fds), fds)
-		}
 		_fds: []os.pollfd
 		alloc_error: mem.Allocator_Error
 		_fds, alloc_error = slice.map_values(fds)
+		if len(fds) > 0 {
+			log.debugf("Polling %d FDs: %v", len(_fds), _fds)
+		}
 		if alloc_error != nil {
 			log.errorf("Failed to allocate for map values: _fds: %v", alloc_error)
 
