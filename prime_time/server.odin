@@ -117,6 +117,10 @@ main :: proc() {
 						net.send_tcp(net.TCP_Socket(fd.fd), send_buffer[:len("invalid")])
 
 						net.close(net.TCP_Socket(fd.fd))
+						log.debugf(
+							"adding fd %d for removal because of validation error",
+							fd_index,
+						)
 						append(&fds_to_remove, fd_index)
 
 						continue
@@ -130,6 +134,8 @@ main :: proc() {
 						log.errorf("Failed to allocate response: %v", response_allocation_error)
 
 						net.close(net.TCP_Socket(fd.fd))
+
+						log.debugf("adding fd %d for removal because of send error", fd_index)
 						append(&fds_to_remove, fd_index)
 
 						continue
