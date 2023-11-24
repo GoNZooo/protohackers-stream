@@ -159,7 +159,6 @@ main :: proc() {
 							slice_to_send := outgoing_message[bytes_sent:]
 							copy(send_buffer[:], slice_to_send)
 							n, send_error := net.send_tcp(net.TCP_Socket(fd.fd), slice_to_send)
-							log.debugf("Sent %d bytes: '%s'", n, slice_to_send)
 							if send_error != nil {
 								log.errorf("Failed to send response: %v", send_error)
 
@@ -386,10 +385,8 @@ receive_message :: proc(
 		if n == 0 {
 			return nil, true
 		}
-		log.debugf("Received %d bytes: '%s'", n, b[bytes_received:])
 		bytes_received += n
 		last_character := b[bytes_received - 1]
-		log.debugf("last_character='%c'", last_character)
 		switch {
 		case last_character == '\n':
 			received_bytes = b[:bytes_received - 1]
@@ -402,8 +399,6 @@ receive_message :: proc(
 			return nil, true
 		}
 	}
-
-	log.debugf("received_bytes='%s'", received_bytes)
 
 	return received_bytes, false
 }
