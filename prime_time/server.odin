@@ -13,6 +13,7 @@ import "core:slice"
 import "core:strconv"
 import "core:sys/unix"
 import "core:testing"
+import "core:time"
 
 NAME :: "PrimeTime"
 
@@ -90,7 +91,7 @@ main :: proc() {
 			set_option_error := net.set_option(
 				client_socket,
 				net.Socket_Option.Receive_Timeout,
-				10,
+				time.Millisecond * 10,
 			)
 			if set_option_error != nil {
 				log.errorf("Failed to set receive timeout: %v", set_option_error)
