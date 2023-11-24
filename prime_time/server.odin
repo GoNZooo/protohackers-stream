@@ -77,7 +77,7 @@ main :: proc() {
 				log.errorf("Failed to accept client: %v", accept_error)
 			}
 
-			log.debugf("Accepted client %v", client_endpoint)
+			log.debugf("Accepted client %v (socket: %d)", client_endpoint, client_socket)
 
 			pollfd := os.pollfd {
 				fd     = c.int(client_socket),
