@@ -12,6 +12,7 @@ import "core:net"
 import "core:os"
 import "core:strconv"
 import "core:sys/unix"
+import "core:testing"
 
 NAME :: "PrimeTime"
 
@@ -126,6 +127,7 @@ main :: proc() {
 						continue
 					}
 
+					log.debugf("Sending response: '%s'", outgoing_message)
 					bytes_to_send := len(outgoing_message)
 					bytes_sent := 0
 					for bytes_sent < bytes_to_send {
@@ -193,6 +195,20 @@ is_prime :: proc(n: Number) -> bool {
 	}
 
 	return true
+}
+
+@(test, private = "package")
+test_is_prime :: proc(t: ^testing.T) {
+	cases := map[Number]bool {
+		800399 = true,
+		3.0    = false,
+	}
+
+	for x, expected in cases {
+		actual := is_prime(x)
+
+		testing.expect(t, actual == expected, fmt.tprintf("is_prime(%d) == %v", x, expected))
+	}
 }
 
 Request :: struct {

@@ -35,6 +35,15 @@ tasks:
       - ./bin/prime-time
     silent: true
 
+  test_prime_time:
+    cmds:
+      - odin test prime_time -o:none -debug -out:./bin/test-prime-test
+    sources:
+      - ./prime_time/**/*.odin
+    generates:
+      - ./bin/test-prime-test
+    silent: true
+
   clean:
     cmds:
       - rm -rf ./bin/*
