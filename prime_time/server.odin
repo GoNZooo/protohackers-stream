@@ -1,5 +1,6 @@
 package prime_time
 
+import "core:bytes"
 import c "core:c/libc"
 import "core:encoding/json"
 import "core:fmt"
@@ -13,7 +14,6 @@ import "core:slice"
 import "core:strconv"
 import "core:sys/unix"
 import "core:testing"
-import "core:time"
 
 NAME :: "PrimeTime"
 
@@ -65,7 +65,7 @@ main :: proc() {
 	}
 
 	listen_fds := [1]os.pollfd{os.pollfd{fd = c.int(listen_socket), events = unix.POLLIN}}
-	recv_buffer: [8 * mem.Kilobyte]byte
+	recv_buffer: [16 * mem.Kilobyte]byte
 	send_buffer: [8 * mem.Kilobyte]byte
 	response_buffer: [8 * mem.Kilobyte]byte
 	for {
@@ -88,14 +88,6 @@ main :: proc() {
 				fd     = c.int(client_socket),
 				events = unix.POLLIN,
 			}
-			set_option_error := net.set_option(
-				client_socket,
-				net.Socket_Option.Receive_Timeout,
-				time.Millisecond * 250,
-			)
-			if set_option_error != nil {
-				log.errorf("Failed to set receive timeout: %v", set_option_error)
-			}
 			append(&_fds, pollfd)
 		}
 
@@ -109,47 +101,33 @@ main :: proc() {
 		if poll_result > 0 {
 			for fd, fd_index in _fds[:] {
 				if fd.revents & unix.POLLIN != 0 {
-					messages, closed, receive_allocation_error := receive_messages(
-						&_fds,
-						fd_index,
-						recv_buffer[:],
-						fd.fd,
-					)
+					message, closed := receive_message(&_fds, fd_index, recv_buffer[:], fd.fd)
 					if closed {
 						net.close(net.TCP_Socket(fd.fd))
 
 						continue
 					}
-					if receive_allocation_error != nil {
-						log.errorf("Failed to receive message: %v", receive_allocation_error)
+					log.debugf("Received message: '%s'", message)
+
+					valid_messages, validation_error := validate_messages(message)
+					defer delete(valid_messages)
+					if validation_error != nil {
+						log.errorf("Failed to validate message: %v", validation_error)
+
+						copy(send_buffer[:], "invalid")
+						net.send_tcp(net.TCP_Socket(fd.fd), send_buffer[:len("invalid")])
 
 						net.close(net.TCP_Socket(fd.fd))
-
-						log.debugf("adding fd %d for removal because of receive error", fd_index)
+						log.debugf(
+							"adding fd %d for removal because of validation error",
+							fd_index,
+						)
 						append(&fds_to_remove, fd_index)
 
 						continue
 					}
 
-					for message in messages {
-						log.debugf("Received message: '%s'", message)
-						valid_message, validation_error := validate_message(message)
-						if validation_error != nil {
-							log.errorf("Failed to validate message: %v", validation_error)
-
-							copy(send_buffer[:], "invalid")
-							net.send_tcp(net.TCP_Socket(fd.fd), send_buffer[:len("invalid")])
-
-							net.close(net.TCP_Socket(fd.fd))
-							log.debugf(
-								"adding fd %d for removal because of validation error",
-								fd_index,
-							)
-							append(&fds_to_remove, fd_index)
-
-							continue
-						}
-
+					for valid_message in valid_messages {
 						outgoing_message, response_allocation_error := handle_request(
 							response_buffer[:],
 							valid_message,
@@ -293,6 +271,7 @@ Number :: union {
 
 Validation_Error :: union {
 	json.Error,
+	mem.Allocator_Error,
 	Invalid_Json_Type,
 	Missing_Method,
 	Missing_Is_Prime,
@@ -331,79 +310,74 @@ typeid_from_value :: proc(value: json.Value) -> typeid {
 	return nil
 }
 
-validate_message :: proc(
-	message: []byte,
+validate_messages :: proc(
+	data: []byte,
+	allocator := context.allocator,
 ) -> (
-	valid_message: Request,
+	valid_messages: [dynamic]Request,
 	validation_error: Validation_Error,
 ) {
-	json_value := json.parse(message, parse_integers = true) or_return
-	object, is_object := json_value.(json.Object)
-	if !is_object {
-		return Request{}, Invalid_Json_Type{type = typeid_from_value(json_value)}
+	_valid_messages := make([dynamic]Request, 0, 0, allocator) or_return
+
+	split_messages := bytes.split(data, []byte{'\n'}, allocator)
+	for message in split_messages {
+		json_value := json.parse(message, parse_integers = true) or_return
+		object, is_object := json_value.(json.Object)
+		if !is_object {
+			return nil, Invalid_Json_Type{type = typeid_from_value(json_value)}
+		}
+
+		method, method_exists := object["method"]
+		method_as_string, method_is_string := method.(json.String)
+		if !method_exists || !method_is_string || method_as_string != "isPrime" {
+			return nil, Missing_Method{}
+		}
+
+		number_value, number_exists := object["number"]
+		if !number_exists {
+			return nil, Missing_Is_Prime{}
+		}
+
+		number_as_integer, number_is_integer := number_value.(json.Integer)
+		number_as_float, number_is_float := number_value.(json.Float)
+
+		if !number_is_integer && !number_is_float {
+			return nil, Invalid_Is_Prime_Value{type = typeid_from_value(number_value)}
+		}
+
+		number := number_is_integer ? Number(number_as_integer) : Number(number_as_float)
+
+		append(&_valid_messages, Request{number = number})
 	}
 
-	method, method_exists := object["method"]
-	method_as_string, method_is_string := method.(json.String)
-	if !method_exists || !method_is_string || method_as_string != "isPrime" {
-		return Request{}, Missing_Method{}
-	}
-
-	number_value, number_exists := object["number"]
-	if !number_exists {
-		return Request{}, Missing_Is_Prime{}
-	}
-
-	number_as_integer, number_is_integer := number_value.(json.Integer)
-	number_as_float, number_is_float := number_value.(json.Float)
-
-	if !number_is_integer && !number_is_float {
-		return Request{}, Invalid_Is_Prime_Value{type = typeid_from_value(number_value)}
-	}
-
-	number := number_is_integer ? Number(number_as_integer) : Number(number_as_float)
-
-	return Request{number = number}, nil
+	return _valid_messages, nil
 }
 
-receive_messages :: proc(
+receive_message :: proc(
 	fds: ^[dynamic]os.pollfd,
 	fd_index: int,
 	b: []byte,
 	fd: c.int,
 ) -> (
-	messages: [][]byte,
+	received_bytes: []byte,
 	closed: bool,
-	error: mem.Allocator_Error,
 ) {
-	_messages := make([dynamic][]byte, 0, 1024) or_return
-	_current_message := make([dynamic]byte, 0, 0) or_return
+	bytes_received := 0
+	for {
+		n, recv_error := net.recv_tcp(net.TCP_Socket(fd), b[:])
+		bytes_received += n
 
-	recv_buffer: [1]byte
-
-	for bytes_received, recv_error := net.recv_tcp(net.TCP_Socket(fd), recv_buffer[:]);
-	    recv_error != net.TCP_Recv_Error.Timeout;
-	    bytes_received, recv_error = net.recv_tcp(net.TCP_Socket(fd), recv_buffer[:]) {
-
-		if bytes_received == 0 {
-			log.debugf("Received 0 bytes, closing socket")
-			return _messages[:], true, .None
-		}
-
-		if recv_error != nil {
-			log.errorf("Failed to receive data: %v", recv_error)
-			return _messages[:], true, .None
-		}
-
-		switch recv_buffer[0] {
-		case '\n':
-			log.debugf("Newline, adding message: '%s'", _current_message[:])
-			append(&_messages, _current_message[:])
-			clear(&_current_message)
-		case:
-			append(&_current_message, recv_buffer[0])
+		switch {
+		case recv_error == net.TCP_Recv_Error.Timeout:
+			continue
+		case recv_error != nil:
+			log.errorf("Failed to receive message: %v", recv_error)
+			return nil, true
+		case b[n - 1] == '\n':
+			received_bytes = b[:bytes_received]
+			break
 		}
 	}
 
-	return _messages[:], false, .None
+	return received_bytes, false
 }
