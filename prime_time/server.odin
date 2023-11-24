@@ -10,7 +10,6 @@ import "core:mem"
 import "core:mem/virtual"
 import "core:net"
 import "core:os"
-import "core:slice"
 import "core:strconv"
 import "core:sys/unix"
 import "core:testing"
@@ -53,6 +52,12 @@ main :: proc() {
 	_fds, pollfds_alloc_error := make([dynamic]os.pollfd, 0, 1024)
 	if pollfds_alloc_error != nil {
 		fmt.printf("Failed to allocate pollfds: %v\n", pollfds_alloc_error)
+
+		os.exit(1)
+	}
+	_new_fds, new_fds_alloc_error := make([dynamic]os.pollfd, 0, 1024)
+	if new_fds_alloc_error != nil {
+		fmt.printf("Failed to allocate new_fds: %v\n", new_fds_alloc_error)
 
 		os.exit(1)
 	}
@@ -168,11 +173,17 @@ main :: proc() {
 				}
 			}
 
-			slice.sort(fds_to_remove[:])
-			for fd_index in fds_to_remove[:] {
-				log.debugf("removing fd %d (%v)", fd_index, _fds[:])
-				ordered_remove(&_fds, fd_index)
+			for fd in _fds {
+				for fd_to_remove in fds_to_remove {
+					if int(fd.fd) == fd_to_remove {
+						continue
+					}
+
+					append(&_new_fds, fd)
+				}
 			}
+
+			_fds = _new_fds
 		}
 	}
 }
