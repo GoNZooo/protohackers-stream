@@ -174,13 +174,15 @@ main :: proc() {
 			}
 
 			for fd in _fds {
+				to_remove := false
 				for fd_to_remove in fds_to_remove {
 					if int(fd.fd) == fd_to_remove {
-						continue
+						to_remove = true
+						break
 					}
-
-					append(&_new_fds, fd)
 				}
+
+				append(&_new_fds, fd)
 			}
 
 			_fds = _new_fds
