@@ -91,7 +91,7 @@ main :: proc() {
 			set_option_error := net.set_option(
 				client_socket,
 				net.Socket_Option.Receive_Timeout,
-				time.Millisecond * 50,
+				time.Millisecond * 250,
 			)
 			if set_option_error != nil {
 				log.errorf("Failed to set receive timeout: %v", set_option_error)
