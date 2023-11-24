@@ -131,11 +131,10 @@ main :: proc() {
 					bytes_to_send := len(outgoing_message)
 					bytes_sent := 0
 					for bytes_sent < bytes_to_send {
-						copy(send_buffer[:], outgoing_message[bytes_sent:])
-						n, send_error := net.send_tcp(
-							net.TCP_Socket(fd.fd),
-							send_buffer[:len(outgoing_message[bytes_sent:])],
-						)
+						slice_to_send := outgoing_message[bytes_sent:]
+						copy(send_buffer[:], slice_to_send)
+						n, send_error := net.send_tcp(net.TCP_Socket(fd.fd), slice_to_send)
+						log.debugf("Sent %d bytes: '%s'", n, slice_to_send)
 						if send_error != nil {
 							log.errorf("Failed to send response: %v", send_error)
 
@@ -204,6 +203,7 @@ test_is_prime :: proc(t: ^testing.T) {
 	cases := map[i64]bool {
 		157813 = true,
 		800399 = true,
+		863833 = true,
 	}
 
 	for x, expected in cases {
