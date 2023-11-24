@@ -369,7 +369,7 @@ receive_message :: proc(
 		bytes_received += n
 
 		switch {
-		case b[bytes_received - 1] == '\n':
+		case b[bytes_received] == '\n':
 			received_bytes = b[:bytes_received - 1]
 			break
 		case n == 0:
