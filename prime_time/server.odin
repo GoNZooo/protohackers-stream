@@ -104,6 +104,11 @@ main :: proc() {
 			continue
 		}
 
+		for fd in _fds {
+			socket := net.TCP_Socket(fd.fd)
+			fds[socket] = fd
+		}
+
 		if poll_result > 0 {
 			for socket, fd in fds {
 				if fd.revents & unix.POLLIN != 0 {
