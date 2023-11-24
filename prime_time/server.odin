@@ -65,7 +65,7 @@ main :: proc() {
 	}
 
 	listen_fds := [1]os.pollfd{os.pollfd{fd = c.int(listen_socket), events = unix.POLLIN}}
-	recv_buffer: [16 * mem.Kilobyte]byte
+	recv_buffer: [50 * mem.Kilobyte]byte
 	send_buffer: [8 * mem.Kilobyte]byte
 	response_buffer: [8 * mem.Kilobyte]byte
 	for {
