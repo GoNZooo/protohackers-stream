@@ -5,6 +5,7 @@ import c "core:c/libc"
 import "core:encoding/json"
 import "core:fmt"
 import "core:log"
+import "core:math"
 import "core:mem"
 import "core:mem/virtual"
 import "core:net"
@@ -185,7 +186,7 @@ is_prime :: proc(n: Number) -> bool {
 		return false
 	}
 
-	for i := 3; i * i <= n; i += 2 {
+	for i := 3; i < int(math.floor(math.sqrt(f32(n)))); i += 2 {
 		if n % i == 0 {
 			return false
 		}
