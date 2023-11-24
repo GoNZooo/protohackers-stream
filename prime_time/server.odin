@@ -377,6 +377,9 @@ receive_message :: proc(
 		case b[bytes_received - 1] == '\n':
 			received_bytes = b[:bytes_received]
 			break
+		case n == 0:
+			closed = true
+			break
 		}
 	}
 
