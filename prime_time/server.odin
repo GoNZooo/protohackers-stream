@@ -112,7 +112,6 @@ main :: proc() {
 
 						continue
 					}
-					log.debugf("Received message: '%s'", message)
 
 					valid_messages, validation_error := validate_messages(message)
 					defer delete(valid_messages)
@@ -169,6 +168,7 @@ main :: proc() {
 						}
 						net.send_tcp(net.TCP_Socket(fd.fd), []byte{'\n'})
 					}
+					net.close(net.TCP_Socket(fd.fd))
 				}
 			}
 
