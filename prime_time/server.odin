@@ -96,7 +96,9 @@ main :: proc() {
 			append(&_fds, pollfd)
 		}
 
-		log.debugf("Polling %d FDs: %v", len(_fds), _fds)
+		if len(_fds) > 0 {
+			log.debugf("Polling %d FDs: %v", len(_fds), _fds)
+		}
 		poll_result, poll_errno = os.poll(_fds[:], 50)
 		if poll_result == -1 || poll_errno != os.ERROR_NONE {
 			log.errorf("Failed to poll client FDs: %d", poll_errno)
