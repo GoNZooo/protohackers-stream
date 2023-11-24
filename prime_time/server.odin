@@ -181,6 +181,10 @@ is_prime :: proc(n: Number) -> bool {
 
 	n := int(n.(i64))
 
+	if n < 0 {
+		return false
+	}
+
 	if n == 2 {
 		return true
 	}
