@@ -369,17 +369,18 @@ receive_message :: proc(
 		bytes_received += n
 
 		switch {
-		case recv_error == net.TCP_Recv_Error.Timeout:
-			continue
-		case recv_error != nil:
-			log.errorf("Failed to receive message: %v", recv_error)
-			return nil, true
 		case b[bytes_received - 1] == '\n':
 			received_bytes = b[:bytes_received - 1]
 			break
 		case n == 0:
 			closed = true
 			break
+		case recv_error == net.TCP_Recv_Error.Timeout:
+			log.debugf("Timeout")
+			continue
+		case recv_error != nil:
+			log.errorf("Failed to receive message: %v", recv_error)
+			return nil, true
 		}
 	}
 
