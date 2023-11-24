@@ -166,6 +166,7 @@ handle_request :: proc(b: []byte, r: Request) -> (response: []byte, error: mem.A
 		method = "isPrime",
 		prime  = number_is_prime,
 	}
+	log.debugf("Response: %v", response_value)
 	json_data, _ := json.marshal(response_value, allocator = buffer_allocator)
 
 	return json_data, .None
@@ -204,6 +205,7 @@ test_is_prime :: proc(t: ^testing.T) {
 		157813 = true,
 		800399 = true,
 		863833 = true,
+		569577 = false,
 	}
 
 	for x, expected in cases {
