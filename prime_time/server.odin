@@ -365,6 +365,9 @@ receive_message :: proc(
 	bytes_received := 0
 	loop: for {
 		n, recv_error := net.recv_tcp(net.TCP_Socket(fd), b[bytes_received:])
+		if n == 0 {
+			return nil, true
+		}
 		log.debugf("Received %d bytes: '%s'", n, b[bytes_received:])
 		bytes_received += n
 		last_character := b[bytes_received - 1]
@@ -372,9 +375,6 @@ receive_message :: proc(
 		switch {
 		case last_character == '\n':
 			received_bytes = b[:bytes_received - 1]
-			break loop
-		case n == 0:
-			closed = true
 			break loop
 		case recv_error == net.TCP_Recv_Error.Timeout:
 			log.debugf("Timeout")
