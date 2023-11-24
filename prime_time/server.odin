@@ -50,7 +50,7 @@ main :: proc() {
 		os.exit(1)
 	}
 
-	fds := make(map[net.TCP_Socket]os.pollfd, 0)
+	clients := make(map[net.TCP_Socket]os.pollfd, 0)
 
 	clients_to_remove, fds_to_remove_alloc_error := make([dynamic]net.TCP_Socket, 0, 1024)
 	if fds_to_remove_alloc_error != nil {
@@ -77,26 +77,24 @@ main :: proc() {
 				log.errorf("Failed to accept client: %v", accept_error)
 			}
 
-			log.debugf("Accepted client %v (socket: %d)", client_endpoint, client_socket)
+			log.infof("Accepted client %v (socket: %d)", client_endpoint, client_socket)
 
 			pollfd := os.pollfd {
 				fd     = c.int(client_socket),
 				events = unix.POLLIN,
 			}
-			fds[client_socket] = pollfd
+			clients[client_socket] = pollfd
 		}
 
 		_fds: []os.pollfd
 		alloc_error: mem.Allocator_Error
-		_fds, alloc_error = slice.map_values(fds)
-		if len(fds) > 0 {
-			log.debugf("Polling %d FDs: %v", len(_fds), _fds)
-		}
+		_fds, alloc_error = slice.map_values(clients)
 		if alloc_error != nil {
 			log.errorf("Failed to allocate for map values: _fds: %v", alloc_error)
 
 			continue
 		}
+		defer delete(_fds)
 		poll_result, poll_errno = os.poll(_fds, 50)
 		if poll_result == -1 || poll_errno != os.ERROR_NONE {
 			log.errorf("Failed to poll client FDs: %d", poll_errno)
@@ -106,12 +104,12 @@ main :: proc() {
 
 		for fd in _fds {
 			socket := net.TCP_Socket(fd.fd)
-			fds[socket] = fd
+			clients[socket] = fd
 		}
 
 		clear(&clients_to_remove)
 		if poll_result > 0 {
-			for socket, fd in fds {
+			for socket, fd in clients {
 				if fd.revents & unix.POLLIN != 0 {
 					message, closed := receive_message(recv_buffer[:], fd.fd)
 					if closed {
@@ -136,7 +134,6 @@ main :: proc() {
 					}
 
 					for valid_message, i in valid_messages {
-						log.debugf("Sending message %d", i)
 						outgoing_message, response_allocation_error := handle_request(
 							response_buffer[:],
 							valid_message,
@@ -155,7 +152,6 @@ main :: proc() {
 							continue
 						}
 
-						log.debugf("Sending response: '%s'", outgoing_message)
 						bytes_to_send := len(outgoing_message)
 						bytes_sent := 0
 						for bytes_sent < bytes_to_send {
@@ -176,7 +172,7 @@ main :: proc() {
 			}
 
 			for client in clients_to_remove {
-				delete_key(&fds, client)
+				delete_key(&clients, client)
 			}
 		}
 	}
@@ -299,8 +295,6 @@ validate_messages :: proc(
 	_valid_messages := make([dynamic]Request, 0, 0, allocator) or_return
 
 	split_messages := bytes.split(data, []byte{'\n'}, allocator)
-	message_count := len(split_messages)
-	log.debugf("message_count=%d", message_count)
 	for message in split_messages {
 		json_value := json.parse(message, parse_integers = true) or_return
 		object, is_object := json_value.(json.Object)
@@ -348,7 +342,6 @@ receive_message :: proc(b: []byte, fd: c.int) -> (received_bytes: []byte, closed
 			received_bytes = b[:bytes_received - 1]
 			break loop
 		case recv_error == net.TCP_Recv_Error.Timeout:
-			log.debugf("Timeout")
 			continue
 		case recv_error != nil:
 			log.errorf("Failed to receive message: %v", recv_error)
