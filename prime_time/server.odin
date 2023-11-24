@@ -157,6 +157,7 @@ main :: proc() {
 
 			slice.reverse_sort(fds_to_remove[:])
 			for fd_index in fds_to_remove[:] {
+				log.debugf("removing fd %d (%v)", fd_index, _fds[:])
 				ordered_remove(&_fds, fd_index)
 			}
 		}
