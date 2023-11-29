@@ -186,13 +186,18 @@ mean :: proc(
 	price_map: ^PriceMap,
 	minimum_time: Timestamp,
 	maximum_time: Timestamp,
+	allocator := context.allocator,
 ) -> (
 	mean_price: i32be,
 ) {
+	prices := make([dynamic]Price, 0, 0, allocator)
+	defer delete(prices)
+
 	sum := 0
 	count := 0
 	for timestamp, price in price_map {
 		if timestamp >= minimum_time && timestamp <= maximum_time {
+			append(&prices, price)
 			sum += int(price)
 			count += 1
 		}
@@ -200,6 +205,10 @@ mean :: proc(
 
 	if count == 0 {
 		return 0
+	}
+
+	if count == 3 {
+		log.debugf("Prices: %v", prices)
 	}
 
 	return i32be(sum / count)
