@@ -214,7 +214,7 @@ receive_message :: proc(
 ) {
 	bytes_received := 0
 	for bytes_received < len(buffer) {
-		n, recv_error := net.recv_tcp(socket, buffer)
+		n, recv_error := net.recv_tcp(socket, buffer[bytes_received:])
 		if recv_error != nil {
 			log.errorf("Error receiving message: %v", recv_error)
 
