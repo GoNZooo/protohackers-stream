@@ -81,6 +81,7 @@ main :: proc() {
 
 			continue
 		}
+		log.debugf("Accepted connection: %d (%v)", client_socket, client_endpoint)
 
 		client_arena: virtual.Arena
 		arena_allocator_error := virtual.arena_init_growing(&client_arena, 1 * mem.Kilobyte)
