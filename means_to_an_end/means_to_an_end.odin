@@ -18,7 +18,7 @@ ClientData :: struct {
 	socket:    net.TCP_Socket,
 }
 
-Timestamp :: distinct u32
+Timestamp :: distinct i32
 
 Price :: distinct i32
 
@@ -214,6 +214,21 @@ mean :: proc(
 	return i32be(sum / count)
 }
 
+@(test, private = "package")
+test_mean :: proc(t: ^testing.T) {
+	context.logger = log.create_console_logger()
+
+	price_map := make_map(map[Timestamp]Price, 0, context.allocator)
+	defer delete(price_map)
+
+	price_map[1] = 2050000000
+	price_map[2] = 2000000000
+	price_map[3] = 2100000000
+
+	mean_price := mean(&price_map, 0, 4)
+	testing.expect_value(t, mean_price, 2050000000)
+}
+
 receive_message :: proc(
 	socket: net.TCP_Socket,
 	buffer: []byte,
@@ -250,7 +265,7 @@ parse_message :: proc(buffer: []byte) -> (message: Message) {
 	switch identifying_byte {
 	case 'I':
 		timestamp_bytes := [4]byte{buffer[1], buffer[2], buffer[3], buffer[4]}
-		timestamp := transmute(u32be)timestamp_bytes
+		timestamp := transmute(i32be)timestamp_bytes
 		price_bytes := [4]byte{buffer[5], buffer[6], buffer[7], buffer[8]}
 		price := transmute(i32be)price_bytes
 		message = Insert {
