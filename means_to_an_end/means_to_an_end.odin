@@ -214,7 +214,7 @@ receive_message :: proc(
 	bytes_received, recv_error := net.recv_tcp(socket, buffer)
 	assert(
 		bytes_received == 0 || bytes_received == len(buffer),
-		"Received invalid number of bytes",
+		fmt.tprintf("Received invalid number of bytes: %d", bytes_received),
 	)
 	log.debugf("recv_error: %v", recv_error)
 	if recv_error != nil {
