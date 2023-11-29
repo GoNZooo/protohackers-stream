@@ -130,10 +130,12 @@ handle_client :: proc(t: thread.Task) {
 
 			break
 		}
+		log.debugf("Received message: %v", message)
 
 		send_buffer: [4]byte
 		outgoing_message := handle_message(message, &client_data.price_map, send_buffer[:])
 		if outgoing_message != nil {
+			log.debugf("Sending message: %s (%d)", outgoing_message, transmute(i32be)send_buffer)
 			sent_bytes, send_error := net.send_tcp(client_data.socket, outgoing_message)
 			if send_error != nil {
 				log.errorf("Error sending message: %v", send_error)
