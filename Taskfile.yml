@@ -44,6 +44,16 @@ tasks:
       - ./bin/test-prime-test
     silent: true
 
+  test_means_to_an_end:
+    cmds:
+      - odin test means_to_an_end -o:none -debug -out:./bin/test-means-to-an-end
+    sources:
+      - ./means_to_an_end/**/*.odin
+    generates:
+      - ./bin/test-means-to-an-end
+    silent: true
+    method: none
+
   clean:
     cmds:
       - rm -rf ./bin/*
