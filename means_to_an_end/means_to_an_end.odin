@@ -212,6 +212,11 @@ receive_message :: proc(
 	error: net.Network_Error,
 ) {
 	bytes_received, recv_error := net.recv_tcp(socket, buffer)
+	assert(
+		bytes_received == 0 || bytes_received == len(buffer),
+		"Received invalid number of bytes",
+	)
+	log.debugf("recv_error: %v", recv_error)
 	if recv_error != nil {
 		return nil, true, recv_error
 	}
@@ -224,6 +229,7 @@ receive_message :: proc(
 
 parse_message :: proc(buffer: []byte) -> (message: Message) {
 	identifying_byte := buffer[0]
+	log.debugf("Parsing message: '%s' (%c)", buffer, identifying_byte)
 	switch identifying_byte {
 	case 'I':
 		timestamp_bytes := [4]byte{buffer[1], buffer[2], buffer[3], buffer[4]}
