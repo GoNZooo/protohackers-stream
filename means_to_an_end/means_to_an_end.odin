@@ -155,6 +155,8 @@ handle_client :: proc(t: thread.Task) {
 			}
 		}
 	}
+
+	net.close(client_data.socket)
 }
 
 handle_message :: proc(
@@ -215,11 +217,16 @@ receive_message :: proc(
 	bytes_received := 0
 	for bytes_received < len(buffer) {
 		n, recv_error := net.recv_tcp(socket, buffer[bytes_received:])
-		if recv_error != nil {
+		if recv_error == net.TCP_Recv_Error.Timeout {
+			bytes_received += n
+
+			continue
+		} else if recv_error != nil {
 			log.errorf("Error receiving message: %v", recv_error)
 
 			return nil, true, recv_error
 		}
+
 		if bytes_received == 0 {
 			done = true
 		}
