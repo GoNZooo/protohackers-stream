@@ -227,9 +227,9 @@ receive_message :: proc(
 			return nil, true, recv_error
 		}
 
-		if bytes_received == 0 {
-			done = true
-		}
+		// if bytes_received == 0 {
+		// 	done = true
+		// }
 
 		bytes_received += n
 	}
