@@ -225,7 +225,7 @@ receive_message :: proc(
 
 		bytes_received += n
 	}
-	log.debugf("bytes_received=%d", bytes_received)
+	log.debugf("bytes_received=%d, buffer='%02x'", bytes_received, buffer)
 
 	return parse_message(buffer), done, nil
 }
