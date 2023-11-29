@@ -119,7 +119,8 @@ handle_client :: proc(t: thread.Task) {
 	log.debugf("Handling client: %v (%v)", client_data.endpoint, client_data)
 
 	for {
-		message, done, receive_error := receive_message(client_data.socket)
+		recv_buffer: [9]byte
+		message, done, receive_error := receive_message(client_data.socket, recv_buffer[:])
 		if receive_error != nil {
 			log.errorf("Error receiving message: %v", receive_error)
 
@@ -204,13 +205,13 @@ mean :: proc(
 
 receive_message :: proc(
 	socket: net.TCP_Socket,
+	buffer: []byte,
 ) -> (
 	message: Message,
 	done: bool,
 	error: net.Network_Error,
 ) {
-	recv_buffer: [9]byte
-	bytes_received, recv_error := net.recv_tcp(socket, recv_buffer[:])
+	bytes_received, recv_error := net.recv_tcp(socket, buffer)
 	if recv_error != nil {
 		return nil, true, recv_error
 	}
@@ -218,10 +219,10 @@ receive_message :: proc(
 		return nil, true, nil
 	}
 
-	return parse_message(recv_buffer), false, nil
+	return parse_message(buffer), false, nil
 }
 
-parse_message :: proc(buffer: [9]byte) -> (message: Message) {
+parse_message :: proc(buffer: []byte) -> (message: Message) {
 	identifying_byte := buffer[0]
 	switch identifying_byte {
 	case 'I':
@@ -257,27 +258,27 @@ test_parse_message :: proc(t: ^testing.T) {
 	test_bytes_3 := [9]byte{'I', 0, 0, 0x30, 0x3b, 0, 0, 0, 0x64}
 	test_bytes_4 := [9]byte{'I', 0, 0, 0xa0, 0, 0, 0, 0, 0x05}
 
-	test_message_1 := parse_message(test_bytes_1)
+	test_message_1 := parse_message(test_bytes_1[:])
 	testing.expect_value(
 		t,
 		test_message_1,
 		Insert{timestamp = Timestamp(12345), price = Price(101)},
 	)
 
-	test_message_2 := parse_message(test_bytes_2)
+	test_message_2 := parse_message(test_bytes_2[:])
 	testing.expect_value(
 		t,
 		test_message_2,
 		Insert{timestamp = Timestamp(12346), price = Price(102)},
 	)
 
-	test_message_3 := parse_message(test_bytes_3)
+	test_message_3 := parse_message(test_bytes_3[:])
 	testing.expect_value(
 		t,
 		test_message_3,
 		Insert{timestamp = Timestamp(12347), price = Price(100)},
 	)
 
-	test_message_4 := parse_message(test_bytes_4)
+	test_message_4 := parse_message(test_bytes_4[:])
 	testing.expect_value(t, test_message_4, Insert{timestamp = Timestamp(40960), price = Price(5)})
 }
