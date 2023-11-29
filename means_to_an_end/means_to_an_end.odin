@@ -211,20 +211,23 @@ receive_message :: proc(
 	done: bool,
 	error: net.Network_Error,
 ) {
-	bytes_received, recv_error := net.recv_tcp(socket, buffer)
-	assert(
-		bytes_received == 0 || bytes_received == len(buffer),
-		fmt.tprintf("Received invalid number of bytes: %d", bytes_received),
-	)
-	log.debugf("recv_error: %v", recv_error)
-	if recv_error != nil {
-		return nil, true, recv_error
-	}
-	if bytes_received == 0 {
-		return nil, true, nil
-	}
+	bytes_received := 0
+	for bytes_received < len(buffer) {
+		n, recv_error := net.recv_tcp(socket, buffer)
+		if recv_error != nil {
+			log.errorf("Error receiving message: %v", recv_error)
 
-	return parse_message(buffer), false, nil
+			return nil, true, recv_error
+		}
+		if bytes_received == 0 {
+			done = true
+		}
+
+		bytes_received += n
+	}
+	log.debugf("bytes_received=%d", bytes_received)
+
+	return parse_message(buffer), done, nil
 }
 
 parse_message :: proc(buffer: []byte) -> (message: Message) {
