@@ -132,7 +132,6 @@ handle_client :: proc(t: thread.Task) {
 
 			break
 		}
-		log.debugf("Received message: %v", message)
 
 		send_buffer: [4]byte
 		outgoing_message := handle_message(message, &client_data.price_map, send_buffer[:])
@@ -240,7 +239,6 @@ receive_message :: proc(
 
 parse_message :: proc(buffer: []byte) -> (message: Message) {
 	identifying_byte := buffer[0]
-	log.debugf("Parsing message: '%s' (%c)", buffer, identifying_byte)
 	switch identifying_byte {
 	case 'I':
 		timestamp_bytes := [4]byte{buffer[1], buffer[2], buffer[3], buffer[4]}
