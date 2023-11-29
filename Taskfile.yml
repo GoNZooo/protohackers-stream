@@ -44,6 +44,23 @@ tasks:
       - ./bin/test-prime-test
     silent: true
 
+  means_to_an_end:
+    cmds:
+      - ./bin/means-to-an-end {{.CLI_ARGS}}
+    deps: 
+      - build_means_to_an_end
+    method: none
+    silent: true
+
+  build_means_to_an_end:
+    cmds:
+      - odin build means_to_an_end -o:none -debug -out:./bin/means-to-an-end
+    sources:
+      - ./means_to_an_end/**/*.odin
+    generates:
+      - ./bin/means-to-an-end
+    silent: true
+
   test_means_to_an_end:
     cmds:
       - odin test means_to_an_end -o:none -debug -out:./bin/test-means-to-an-end
