@@ -40,6 +40,8 @@ Query :: struct {
 Response :: distinct i32
 
 main :: proc() {
+	context.logger = log.create_console_logger()
+
 	if len(os.args) < 2 {
 		fmt.printf("Usage: %s <port>", os.args[0])
 
@@ -66,7 +68,7 @@ main :: proc() {
 		os.exit(1)
 	}
 
-	fmt.printf("Listening on port %d", port)
+	log.infof("Listening on port %d", port)
 
 	thread_pool: thread.Pool
 	thread.pool_init(&thread_pool, context.allocator, 100)
@@ -104,6 +106,7 @@ main :: proc() {
 
 handle_client :: proc(t: thread.Task) {
 	client_data := cast(^ClientData)t.data
+	context.logger = log.create_console_logger(ident = fmt.tprintf("%v", client_data.endpoint))
 	price_map, client_data_allocator_error := make_map(map[Timestamp]Price, 0, t.allocator)
 	if client_data_allocator_error != nil {
 		log.errorf("Error allocating client price map: %v", client_data_allocator_error)
@@ -112,6 +115,8 @@ handle_client :: proc(t: thread.Task) {
 	}
 
 	client_data.price_map = price_map
+
+	log.debugf("Handling client: %v (%v)", client_data.endpoint, client_data)
 
 	for {
 		message, done, receive_error := receive_message(client_data.socket)
